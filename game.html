@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OrbitFlux - p5.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script>
+let particles = [];
+let blackHole;
+let bhMass = 500;
+
+function setup() {
+  createCanvas(1000, 800);
+  background(0);
+  blackHole = createVector(width / 2, height / 2);
+}
+
+function draw() {
+  // Trail effect / Эффект затухания
+  fill(0, 30);
+  noStroke();
+  rect(0, 0, width, height);
+  
+  // Draw Black Hole / Рисуем черную дыру
+  fill(50, 0, 100);
+  ellipse(blackHole.x, blackHole.y, 10, 10);
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.applyGravity(blackHole, bhMass);
+    p.update(particles, i);
+    p.display();
+    
+    // Remove if too far / Удаляем, если слишком далеко
+    if (p.pos.dist(blackHole) > 2000) {
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function mousePressed() {
+  particles.push(new Particle(mouseX, mouseY, createVector(random(-2, 2), random(-2, 2))));
+}
+
+class Particle {
+  constructor(x, y, v) {
+    this.pos = createVector(x, y);
+    this.vel = v;
+    this.acc = createVector(0, 0);
+    this.mass = random(2, 5);
+    this.radius = this.mass * 2;
+  }
+
+  applyGravity(target, m) {
+    let force = p5.Vector.sub(target, this.pos);
+    let d = constrain(force.mag(), 10, 500);
+    force.normalize();
+    let strength = (0.5 * m * this.mass) / (d * d);
+    force.mult(strength);
+    this.acc.add(force);
+  }
+
+  update(others, index) {
+    // Inter-particle gravity and merging / Гравитация и слияние
+    for (let i = others.length - 1; i >= 0; i--) {
+      let other = others[i];
+      if (other !== this) {
+        let d = this.pos.dist(other.pos);
+        
+        // Collision check (merge) / Проверка столкновения
+        if (d < (this.radius + other.radius) * 0.5) {
+          // Momentum conservation / Сохранение импульса
+          let v1 = p5.Vector.mult(this.vel, this.mass);
+          let v2 = p5.Vector.mult(other.vel, other.mass);
+          let newVel = p5.Vector.add(v1, v2);
+          newVel.div(this.mass + other.mass);
+          
+          this.vel = newVel;
+          this.mass += other.mass;
+          this.radius = this.mass * 2;
+          
+          others.splice(i, 1);
+          // Adjust index if necessary since we removed an element
+        } else {
+          this.applyGravity(other.pos, other.mass);
+        }
+      }
+    }
+
+    this.vel.add(this.acc);
+    this.pos.add(this.vel);
+    this.acc.mult(0);
+  }
+
+  display() {
+    let speed = this.vel.mag();
+    let r = map(speed, 0, 10, 50, 255);
+    let b = map(speed, 0, 10, 255, 50);
+    
+    fill(r, 100, b);
+    noStroke();
+    ellipse(this.pos.x, this.pos.y, this.radius, this.radius);
+  }
+}
+</script>
+</body>
+</html>
